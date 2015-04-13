@@ -3,11 +3,9 @@ import sqlite3
 from flask import Flask, request, session, g, redirect, url_for, \
      abort, render_template, flash
 
-# create our little application :)
-app = Flask(__name__)
-# app.config.from_object(__name__)
-app.config.from_envvar('TOMMYJOHNS_SETTINGS', silent=True)
 
+app = Flask(__name__)
+app.config.from_envvar('TOMMYJOHNS_SETTINGS', silent=True)
 
 
 def connect_db():
@@ -36,6 +34,11 @@ def show_entries():
     cur = g.db.execute('select googleuid, title from spreadsheets order by id desc')
     entries = [dict(title=row[0], text=row[1]) for row in cur.fetchall()]
     return render_template('show_entries.html', entries=entries)
+
+@app.route('/surgeries', methods=['GET'])
+def show_surgeries():
+    error = None
+    return render_template('surgeries.html', error=error)
 
 # @app.route('/login', methods=['GET', 'POST'])
 # def login():
