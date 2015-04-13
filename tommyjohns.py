@@ -5,7 +5,7 @@ from flask import Flask, request, session, g, redirect, url_for, \
 
 
 app = Flask(__name__)
-app.config.from_envvar('TOMMYJOHNS_SETTINGS', silent=True)
+app.config.from_envvar('TOMMYJOHNS_SETTINGS_FILE', silent=True)
 
 
 def connect_db():
