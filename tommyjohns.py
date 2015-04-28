@@ -83,4 +83,5 @@ def show_surgeries():
 #     return redirect(url_for('show_entries'))
 
 if __name__ == '__main__':
+    # init_db()
     app.run()
