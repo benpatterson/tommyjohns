@@ -1,7 +1,11 @@
 # all the imports
 import sqlite3
+import pandas
 from flask import Flask, request, session, g, redirect, url_for, \
      abort, render_template, flash
+from contextlib import closing
+from bokeh.embed import file_html, Resources
+from bokeh.charts import Bar
 
 
 app = Flask(__name__)
@@ -11,7 +15,7 @@ app.config.from_envvar('TOMMYJOHNS_SETTINGS_FILE', silent=True)
 def connect_db():
     return sqlite3.connect(app.config['DATABASE'])
 
-from contextlib import closing
+
 def init_db():
     with closing(connect_db()) as db:
         with app.open_resource('schema.sql', mode='r') as f:
@@ -39,6 +43,32 @@ def show_entries():
 def show_surgeries():
     error = None
     return render_template('surgeries.html', error=error)
+
+@app.route('/surgeries-by-year', methods=['GET'])
+def show_surgeries_by_year():
+    error = None
+    return render_template('surgery_dates.html', error=error)
+
+
+def build_charts():
+    # from bokeh.charts import Histogram, show, output_file
+    surgeries_df = pandas.DataFrame.from_csv('devstuff/TJList.csv', index_col='mlbamid')
+    # change surgery date strings to just years
+    surgeries_df['TJ Surgery Date'] = surgeries_df['TJ Surgery Date'].apply(lambda x: int(str(x)[-4:]))
+    # zup = pandas.DataFrame(surgeries_df['TJ Surgery Date'].value_counts(sort=False))
+    majors_only = surgeries_df[(surgeries_df.Majors == 'Y')]
+    minors_only = surgeries_df[(surgeries_df.Majors == 'N')]
+    majors_only_counts = pandas.DataFrame(majors_only['TJ Surgery Date'].value_counts(sort=False))
+    minors_only_counts = pandas.DataFrame(minors_only['TJ Surgery Date'].value_counts(sort=False))
+    years_df = majors_only_counts.join(minors_only_counts, lsuffix='_majors', rsuffix='_minors')
+    years_df.fillna(0, inplace=True)
+    years_df.rename(columns={u'0_majors': u'majors', u'0_minors': u'minors'}, inplace=True)
+    per_year_bar_chart = Bar(years_df, stacked=True, legend=True)
+    CDN = Resources(mode="cdn")
+    html = file_html(per_year_bar_chart, CDN, "surg_dates_0")
+    with open("templates/surg_dates_1", "w") as f:
+        f.write(html)
+
 
 # @app.route('/login', methods=['GET', 'POST'])
 # def login():
@@ -83,5 +113,5 @@ def show_surgeries():
 #     return redirect(url_for('show_entries'))
 
 if __name__ == '__main__':
-    # init_db()
+    init_db()
     app.run()
