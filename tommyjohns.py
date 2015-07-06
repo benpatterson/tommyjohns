@@ -44,16 +44,28 @@ def show_entries():
     entries = [dict(title=row[0], text=row[1]) for row in cur.fetchall()]
     return render_template('show_entries.html', entries=entries)
 
+
 @app.route('/surgeries', methods=['GET'])
 def show_surgeries():
     error = None
-    return render_template("surgeries.html", error=error)
+    return render_template(
+        "chart.html",
+        error=error,
+        chart_title="Major League Surgeries",
+        chart_subtitle="Distribution by Age (histogram)",
+        chart_file=AGE_DISTRIBUTION)
 
 @app.route('/surgeries-by-year', methods=['GET'])
 def show_surgeries_by_year():
     error = None
-    return render_template("surgery_dates.html", error=error)
-
+    # return render_template("surgery_dates.html", error=error)
+    return render_template(
+        "chart.html",
+        error=error,
+        chart_title="surgeries_per_year",
+        chart_subtitle="",
+        chart_file=NUM_PER_YEAR
+    )
 
 def build_charts():
     df = pandas.DataFrame.from_csv('devstuff/TJList.csv', index_col='mlbamid')
@@ -78,8 +90,9 @@ def chart_surgeries_per_year(surgeries_df):
         f.write(html)
 
 def chart_age_distribution(age_df):
+    age_df = age_df[(age_df.Majors == 'Y')]
     all_ages = list(age_df['Age'])
-    age_histogram = Histogram(all_ages, bins=35)
+    age_histogram = Histogram(all_ages, bins=25)
     html = file_html(age_histogram, CDN, AGE_DISTRIBUTION)
     with open("templates/" + AGE_DISTRIBUTION, "w") as f:
         f.write(html)
