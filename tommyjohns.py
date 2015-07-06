@@ -5,8 +5,13 @@ from flask import Flask, request, session, g, redirect, url_for, \
      abort, render_template, flash
 from contextlib import closing
 from bokeh.embed import file_html, Resources
-from bokeh.charts import Bar
+from bokeh.charts import Bar, Histogram, Area
 
+
+CDN = Resources(mode="cdn")
+# List of pages
+NUM_PER_YEAR = "surgeries_per_year"
+AGE_DISTRIBUTION = "age_distribution"
 
 app = Flask(__name__)
 app.config.from_envvar('TOMMYJOHNS_SETTINGS_FILE', silent=True)
@@ -42,17 +47,21 @@ def show_entries():
 @app.route('/surgeries', methods=['GET'])
 def show_surgeries():
     error = None
-    return render_template('surgeries.html', error=error)
+    return render_template("surgeries.html", error=error)
 
 @app.route('/surgeries-by-year', methods=['GET'])
 def show_surgeries_by_year():
     error = None
-    return render_template('surgery_dates.html', error=error)
+    return render_template("surgery_dates.html", error=error)
 
 
 def build_charts():
-    # from bokeh.charts import Histogram, show, output_file
-    surgeries_df = pandas.DataFrame.from_csv('devstuff/TJList.csv', index_col='mlbamid')
+    df = pandas.DataFrame.from_csv('devstuff/TJList.csv', index_col='mlbamid')
+    chart_surgeries_per_year(surgeries_df=df)
+    chart_age_distribution(age_df=df)
+
+
+def chart_surgeries_per_year(surgeries_df):
     # change surgery date strings to just years
     surgeries_df['TJ Surgery Date'] = surgeries_df['TJ Surgery Date'].apply(lambda x: int(str(x)[-4:]))
     # zup = pandas.DataFrame(surgeries_df['TJ Surgery Date'].value_counts(sort=False))
@@ -64,10 +73,17 @@ def build_charts():
     years_df.fillna(0, inplace=True)
     years_df.rename(columns={u'0_majors': u'majors', u'0_minors': u'minors'}, inplace=True)
     per_year_bar_chart = Bar(years_df, stacked=True, legend=True)
-    CDN = Resources(mode="cdn")
-    html = file_html(per_year_bar_chart, CDN, "surg_dates_0")
-    with open("templates/surg_dates_1", "w") as f:
+    html = file_html(per_year_bar_chart, CDN, NUM_PER_YEAR)
+    with open("templates/" + NUM_PER_YEAR, "w") as f:
         f.write(html)
+
+def chart_age_distribution(age_df):
+    all_ages = list(age_df['Age'])
+    age_histogram = Histogram(all_ages, bins=35)
+    html = file_html(age_histogram, CDN, AGE_DISTRIBUTION)
+    with open("templates/" + AGE_DISTRIBUTION, "w") as f:
+        f.write(html)
+
 
 
 # @app.route('/login', methods=['GET', 'POST'])
@@ -114,4 +130,5 @@ def build_charts():
 
 if __name__ == '__main__':
     init_db()
+    build_charts()
     app.run()
