@@ -45,7 +45,7 @@ def show_entries():
     return render_template('show_entries.html', entries=entries)
 
 
-@app.route('/surgeries', methods=['GET'])
+@app.route('/age', methods=['GET'])
 def show_surgeries():
     error = None
     return render_template(
