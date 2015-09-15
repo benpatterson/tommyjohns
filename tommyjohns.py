@@ -5,13 +5,14 @@ from flask import Flask, request, session, g, redirect, url_for, \
      abort, render_template, flash
 from contextlib import closing
 from bokeh.embed import file_html, Resources
-from bokeh.charts import Bar, Histogram, Area
+from bokeh.charts import Bar, Histogram, Line, TimeSeries
 
 
 CDN = Resources(mode="cdn")
 # List of pages
 NUM_PER_YEAR = "surgeries_per_year"
 AGE_DISTRIBUTION = "age_distribution"
+RECOVERY_TIMES = "recovery_times"
 
 app = Flask(__name__)
 app.config.from_envvar('TOMMYJOHNS_SETTINGS_FILE', silent=True)
@@ -58,7 +59,6 @@ def show_surgeries():
 @app.route('/surgeries-by-year', methods=['GET'])
 def show_surgeries_by_year():
     error = None
-    # return render_template("surgery_dates.html", error=error)
     return render_template(
         "chart.html",
         error=error,
@@ -67,13 +67,31 @@ def show_surgeries_by_year():
         chart_file=NUM_PER_YEAR
     )
 
+@app.route('/recovery-times', methods=['GET'])
+def show_recovery_times():
+    return render_template(
+        "chart.html",
+        error=None,
+        chart_title="Recovery Times",
+        chart_subtitle="",
+        chart_file=RECOVERY_TIMES
+    )
+
+
 def build_charts():
     df = pandas.DataFrame.from_csv('devstuff/TJList.csv', index_col='mlbamid')
-    chart_surgeries_per_year(surgeries_df=df)
+    chart_recovery_time(recov_df=df)
+    chart_surgeries_per_year(surgeries_df0=df)
     chart_age_distribution(age_df=df)
 
 
-def chart_surgeries_per_year(surgeries_df):
+
+def chart_surgeries_per_year(surgeries_df0):
+    """
+    Creates an embedded chart with the number of surgeries per year
+    """
+    # surgeries_df = surgeries_df0
+    surgeries_df = pandas.DataFrame.from_csv('devstuff/TJList.csv', index_col='mlbamid')
     # change surgery date strings to just years
     surgeries_df['TJ Surgery Date'] = surgeries_df['TJ Surgery Date'].apply(lambda x: int(str(x)[-4:]))
     # zup = pandas.DataFrame(surgeries_df['TJ Surgery Date'].value_counts(sort=False))
@@ -89,7 +107,11 @@ def chart_surgeries_per_year(surgeries_df):
     with open("templates/" + NUM_PER_YEAR, "w") as f:
         f.write(html)
 
+
 def chart_age_distribution(age_df):
+    """
+    Creates a histogram that charts the age distribution for major leaguers
+    """
     age_df = age_df[(age_df.Majors == 'Y')]
     all_ages = list(age_df['Age'])
     age_histogram = Histogram(all_ages, bins=25)
@@ -97,6 +119,18 @@ def chart_age_distribution(age_df):
     with open("templates/" + AGE_DISTRIBUTION, "w") as f:
         f.write(html)
 
+
+def chart_recovery_time(recov_df):
+    recov_df['TJ Surgery Date'] = pandas.to_datetime(recov_df['TJ Surgery Date'], format='%m/%d/%Y')
+    recov_df = recov_df[(recov_df.Majors == 'Y')]
+    recovery_times = recov_df[['Recovery Time (months)', 'TJ Surgery Date']]
+    recovery_times.dropna(0, inplace=True)
+
+    data = dict(Recovery=recovery_times['Recovery Time (months)'], Date=recovery_times['TJ Surgery Date'])
+    recovery_graph = TimeSeries(data, index='Date')
+    html = file_html(recovery_graph, CDN, "recovery_times")
+    with open ("templates/recovery_times", "w") as f:
+        f.write(html)
 
 
 # @app.route('/login', methods=['GET', 'POST'])
