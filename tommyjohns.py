@@ -85,23 +85,22 @@ def build_charts():
     chart_age_distribution(age_df=df)
 
 
-
 def chart_surgeries_per_year(surgeries_df0):
     """
     Creates an embedded chart with the number of surgeries per year
     """
-    # surgeries_df = surgeries_df0
     surgeries_df = pandas.DataFrame.from_csv('devstuff/TJList.csv', index_col='mlbamid')
-    # change surgery date strings to just years
     surgeries_df['TJ Surgery Date'] = surgeries_df['TJ Surgery Date'].apply(lambda x: int(str(x)[-4:]))
-    # zup = pandas.DataFrame(surgeries_df['TJ Surgery Date'].value_counts(sort=False))
+
     majors_only = surgeries_df[(surgeries_df.Majors == 'Y')]
     minors_only = surgeries_df[(surgeries_df.Majors == 'N')]
     majors_only_counts = pandas.DataFrame(majors_only['TJ Surgery Date'].value_counts(sort=False))
     minors_only_counts = pandas.DataFrame(minors_only['TJ Surgery Date'].value_counts(sort=False))
+
     years_df = majors_only_counts.join(minors_only_counts, lsuffix='_majors', rsuffix='_minors')
     years_df.fillna(0, inplace=True)
     years_df.rename(columns={u'0_majors': u'majors', u'0_minors': u'minors'}, inplace=True)
+
     per_year_bar_chart = Bar(years_df, stacked=True, legend=True)
     html = file_html(per_year_bar_chart, CDN, NUM_PER_YEAR)
     with open("templates/" + NUM_PER_YEAR, "w") as f:
