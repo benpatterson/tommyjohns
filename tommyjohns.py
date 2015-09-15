@@ -1,4 +1,3 @@
-# all the imports
 import sqlite3
 import pandas
 from flask import Flask, request, session, g, redirect, url_for, \
@@ -6,6 +5,8 @@ from flask import Flask, request, session, g, redirect, url_for, \
 from contextlib import closing
 from bokeh.embed import file_html, Resources
 from bokeh.charts import Bar, Histogram, Line, TimeSeries
+
+import gspread
 
 
 CDN = Resources(mode="cdn")
@@ -28,9 +29,11 @@ def init_db():
             db.cursor().executescript(f.read())
         db.commit()
 
+
 @app.before_request
 def before_request():
     g.db = connect_db()
+
 
 @app.teardown_request
 def teardown_request(exception):
@@ -48,6 +51,9 @@ def show_entries():
 
 @app.route('/age', methods=['GET'])
 def show_surgeries():
+    """
+    This page provides a histogram of surgeries according to pitcher age at time of surgery
+    """
     error = None
     return render_template(
         "chart.html",
@@ -58,6 +64,9 @@ def show_surgeries():
 
 @app.route('/surgeries-by-year', methods=['GET'])
 def show_surgeries_by_year():
+    """
+    This page provides a bar graph of the number of surgeries each year
+    """
     error = None
     return render_template(
         "chart.html",
@@ -69,6 +78,10 @@ def show_surgeries_by_year():
 
 @app.route('/recovery-times', methods=['GET'])
 def show_recovery_times():
+    """
+    This chart looks at the time to recovery, which is defined as the amount of time passed until
+    the next non-rehab start (er, I think)
+    """
     return render_template(
         "chart.html",
         error=None,
@@ -87,7 +100,7 @@ def build_charts():
 
 def chart_surgeries_per_year(surgeries_df0):
     """
-    Creates an embedded chart with the number of surgeries per year
+    Creates an embedded chart with the number of surgeries per year, broken out by major and minor leaguers
     """
     surgeries_df = pandas.DataFrame.from_csv('devstuff/TJList.csv', index_col='mlbamid')
     surgeries_df['TJ Surgery Date'] = surgeries_df['TJ Surgery Date'].apply(lambda x: int(str(x)[-4:]))
@@ -120,16 +133,31 @@ def chart_age_distribution(age_df):
 
 
 def chart_recovery_time(recov_df):
+    """
+    Line graph that depicts the recovery times of pitchers. It is broken out by year.
+    """
     recov_df['TJ Surgery Date'] = pandas.to_datetime(recov_df['TJ Surgery Date'], format='%m/%d/%Y')
     recov_df = recov_df[(recov_df.Majors == 'Y')]
     recovery_times = recov_df[['Recovery Time (months)', 'TJ Surgery Date']]
     recovery_times.dropna(0, inplace=True)
 
     data = dict(Recovery=recovery_times['Recovery Time (months)'], Date=recovery_times['TJ Surgery Date'])
-    recovery_graph = TimeSeries(data, index='Date')
+    recovery_graph = TimeSeries(data, index='Date', xlabel="year", ylabel='months')
     html = file_html(recovery_graph, CDN, "recovery_times")
-    with open ("templates/recovery_times", "w") as f:
+    with open("templates/recovery_times", "w") as f:
         f.write(html)
+
+
+def get_spreadsheet():
+    """
+    Loads entire worksheet and writes to the file referenced by graphs. It will only
+    overwrite the existing file if it is larger than the previous file.
+    """
+    gspread_session = gspread.login(app.config['GOOGLE_USER'], app.config['GOOGLE_PASS'])
+    tj_spreadsheet = gspread_session.open_by_key(app.config['GOOGLE_SHEET_KEY'])
+    tj_worksheet = tj_spreadsheet.worksheet("TJ List")
+    all_stuff = tj_worksheet.get_all_values()
+    # write out all_stuff as a csv file
 
 
 # @app.route('/login', methods=['GET', 'POST'])
